@@ -1,9 +1,9 @@
 package watch
 
 type FileChanges struct {
-	Modified  chan bool
-	Truncated chan bool
-	Deleted   chan bool
+	Modified  chan bool		// 修改
+	Truncated chan bool		// 增加
+	Deleted   chan bool		// 删除
 }
 
 func NewFileChanges() *FileChanges {

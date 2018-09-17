@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -44,16 +45,19 @@ var (
 			remove:		make(chan *watchInfo),
 			error:		make(chan error),
 		}
-		//go shared.run()
+		go shared.run()
 	}
 )
 
+// Watch signals the run goroutine to begin watching the input filename
 func Watch(fname string) error {
 	return watch (&watchInfo {
 		fname: fname,
 	})
 }
 
+// Watch create signals the run goroutine to begin watching the input filename
+// if call the WatchCreate function, don't call the Cleanup, call the RemoveWatchCreate
 func WatchCreate(fname string) error {
 	return watch(&watchInfo {
 		op:		fsnotify.Create,
@@ -69,12 +73,14 @@ func watch(winfo *watchInfo) error {
 	return <- shared.error
 }
 
+// RemoveWatch signals the run goroutine to remove the watch for the input filename
 func RemoveWatch(fname string) error {
 	return remove(&watchInfo {
 		fname: fname,
 	})
 }
 
+// RemoveWatch create signals the run goroutine to remove the watch for the input filename
 func RemoveWatchCreate(fname string)error {
 	return remove (&watchInfo {
 		op:		fsnotify.Create,
@@ -168,7 +174,7 @@ func (shared *InotifyTracker) removeWatch(winfo *watchInfo) error {
 	return err
 }
 
-
+// 这里是将事件信息发给Tail结构体部分处理
 func(shared *InotifyTracker) sendEvent(event fsnotify.Event) {
 	name := filepath.Clean(event.Name)
 
@@ -186,10 +192,12 @@ func(shared *InotifyTracker) sendEvent(event fsnotify.Event) {
 }
 
 
+// run starts the goroutine in which the shared struct reads events from its
+// Watcher's Event channel and sends the events to the appropriate Tail.
 func (shared *InotifyTracker) run(){
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		//
+		fmt.Println("failed to create Watcher")
 	}
 	shared.watcher = watcher
 
@@ -200,7 +208,7 @@ func (shared *InotifyTracker) run(){
 		case winfo := <- shared.remove:
 			shared.error <- shared.removeWatch(winfo)
 		case event, open := <- shared.watcher.Events:
-			if !open{
+			if !open {
 				return
 			}
 			shared.sendEvent(event)
@@ -210,8 +218,7 @@ func (shared *InotifyTracker) run(){
 			} else if err != nil {
 				sysErr, ok := err.(*os.SyscallError)
 				if !ok || sysErr.Err != syscall.EINTR{
-					// to do
-
+					fmt.Printf("Error in Watcher Error channel: %s", err)
 				}
 			}
 		}
